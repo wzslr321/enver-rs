@@ -30,33 +30,50 @@ struct Opt {
 }
 
 fn main() -> Result<()> {
-    let args:Opt = Opt::from_args();
+    let args: Opt = Opt::from_args();
 
     let add = args.add;
     let delete = args.delete;
     let modify = args.modify;
 
+    let action:&str;
+
     if add {
-       println!("Add");
+        action = "add";
     } else if delete {
-       println!("Delete");
+        action = "delete";
     } else if modify {
-       println!("Modify");
+        action = "modify";
     }
 
     let content = std::fs::read_to_string(&args.dot_path)
         .with_context(|| format!("could not read file `{}`", args.dot_path.display()))?;
 
-    find_var(&content, &args.var, &mut std::io::stdout());
+    let results_number = find_var(&content, &args.var, &mut std::io::stdout());
+
+    print_choose_msg(results_number, &action);
 
     Ok(())
 }
 
-fn find_var(content: &str, name: &str, mut writer: impl std::io::Write) {
+fn find_var(content: &str, name: &str, mut writer: impl std::io::Write) -> u8 {
+    let mut is_found: u8 = 0;
+
     for line in content.lines() {
         if line.contains(name) {
-            writeln!(writer, "{}", line).ok();
+            is_found += 1;
+            writeln!(writer, "{}. {}", is_found, line).ok();
         }
+    }
+
+    is_found
+}
+
+fn print_choose_msg(results:u8, action: &str) {
+    if results > 0 {
+        println!("Environment variable(s) have been found, choose which one you want to {}", action);
+    } else {
+        println!("No environment variable has been found :(");
     }
 }
 
