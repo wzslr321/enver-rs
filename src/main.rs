@@ -43,3 +43,29 @@ fn find_var(content: &str, name: &str, mut writer: impl std::io::Write) {
         }
     }
 }
+
+impl Opt {
+    fn get_default_var(&mut self) -> &mut String {
+        &mut self.var
+    }
+
+    fn default() -> Opt {
+        let mut path = PathBuf::new();
+        path.push("~/.zshrc");
+        Opt {
+            dot_path: path,
+            add: false,
+            delete: false,
+            modify: false,
+            var: "PATH".to_string(),
+        }
+    }
+}
+
+#[test]
+fn find_env_var() {
+    let mut result = Vec::new();
+    let mut opt = Opt::default();
+    find_var("PATH=test\nDEFINITELY_NOT_PAATH=test", opt.get_default_var(),&mut result);
+    assert_eq!(result, b"PATH=test\n");
+}
