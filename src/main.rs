@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use structopt::StructOpt;
-use std::home;
+use anyhow::{Context, Result};
 
 #[derive(StructOpt)]
 #[structopt(about = "Even the best sometimes need -h or --help...")]
@@ -14,24 +14,32 @@ struct Opt {
     delete: bool,
 
     /// Use specified variable name to create a new one
+    #[structopt(short, long)]
     add: bool,
 
-    /// Require double confirmation to perform changes
-    #[structopt(long, default_value = true)]
-    confirm: bool,
-
     /// Path to dotfile holding environment variables configuration.
-    #[structopt(long, parse(from_os_str), default = resolve_home_path())]
+    #[structopt(long, parse(from_os_str))]
     dot_path: PathBuf,
 
     /// Environment variable name to look for
-    #[structopt(short, long, default = "PATH")]
+    #[structopt(short, long, default_value = "PATH")]
     var: String,
 }
 
-fn main() {
+fn main() -> Result<()> {
+    let args = Opt::from_args();
+    let content = std::fs::read_to_string(&args.dot_path)
+        .with_context(|| format!("could not read file `{}`", args.dot_path.display()))?;
+
+    find_var(&content, &args.var, &mut std::io::stdout());
+
+    Ok(())
 }
 
-fn resolve_home_path() -> PathBuf {
-    home::home_dir()?
+fn find_var(content: &str, name: &str, mut writer: impl std::io::Write) {
+    for line in content.lines() {
+        if line.contains(name) {
+            writeln!(writer, "{}", line);
+        }
+    }
 }
