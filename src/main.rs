@@ -3,19 +3,22 @@ use structopt::StructOpt;
 use anyhow::{Context, Result};
 
 #[derive(StructOpt)]
-#[structopt(about = "Even the best sometimes need -h or --help...")]
+#[structopt(
+name = "enver-rs otherwise called the best env variables tool\n",
+about = "Let's you modify your environment variables without an effort",
+)]
 struct Opt {
-    /// Search for the specified variable, and modify if found
+    /// Use specified variable name to create a new one
     #[structopt(short, long)]
-    modify: bool,
+    add: bool,
 
     /// Search for the specified variable, and delete if found
     #[structopt(short, long)]
     delete: bool,
 
-    /// Use specified variable name to create a new one
+    /// Search for the specified variable, and modify if found
     #[structopt(short, long)]
-    add: bool,
+    modify: bool,
 
     /// Path to dotfile holding environment variables configuration.
     #[structopt(long, parse(from_os_str))]
@@ -27,7 +30,20 @@ struct Opt {
 }
 
 fn main() -> Result<()> {
-    let args = Opt::from_args();
+    let args:Opt = Opt::from_args();
+
+    let add = args.add;
+    let delete = args.delete;
+    let modify = args.modify;
+
+    if add {
+       println!("Add");
+    } else if delete {
+       println!("Delete");
+    } else if modify {
+       println!("Modify");
+    }
+
     let content = std::fs::read_to_string(&args.dot_path)
         .with_context(|| format!("could not read file `{}`", args.dot_path.display()))?;
 
@@ -39,7 +55,7 @@ fn main() -> Result<()> {
 fn find_var(content: &str, name: &str, mut writer: impl std::io::Write) {
     for line in content.lines() {
         if line.contains(name) {
-            writeln!(writer, "{}", line);
+            writeln!(writer, "{}", line).ok();
         }
     }
 }
@@ -65,7 +81,7 @@ impl Opt {
 #[test]
 fn find_env_var() {
     let mut result = Vec::new();
-    let opt = Opt::default();
-    find_var("PATH=test\nDEFINITELY_NOT_PAATH=test", opt.get_default_var(), &mut result);
+    let name = Opt::default().get_default_var();
+    find_var("PATH=test\nDEFINITELY_NOT_PAATH=test", name, &mut result);
     assert_eq!(result, b"PATH=test\n");
 }
