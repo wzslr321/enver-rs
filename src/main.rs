@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use structopt::StructOpt;
 use anyhow::{Context, Result};
+use text_io::read;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -36,24 +37,44 @@ fn main() -> Result<()> {
     let delete = args.delete;
     let modify = args.modify;
 
-    let action:&str;
+    let action_option: Option<&str>;
 
     if add {
-        action = "add";
+        action_option = Some("add");
     } else if delete {
-        action = "delete";
+        action_option = Some("delete");
     } else if modify {
-        action = "modify";
+        action_option = Some("modify");
+    } else {
+        action_option = None;
     }
 
     let content = std::fs::read_to_string(&args.dot_path)
         .with_context(|| format!("could not read file `{}`", args.dot_path.display()))?;
 
-    let results_number = find_var(&content, &args.var, &mut std::io::stdout());
 
-    print_choose_msg(results_number, &action);
+    let mut results_number = 0;
+    if action_option != None {
+        results_number = find_var(&content, &args.var, &mut std::io::stdout());
+    }
+
+    let option: u8;
+
+    match action_option {
+        None => option = return_action_options(),
+        Some(result) => option = print_choose_msg(results_number, &result),
+    };
 
     Ok(())
+}
+
+fn get_user_option() -> u8 {
+    read!()
+}
+
+fn return_action_options() -> u8 {
+    println!("Please, first specify what do you want to do. \n 1. Add \n 2. Delete \n 3. Modify ");
+    get_user_option()
 }
 
 fn find_var(content: &str, name: &str, mut writer: impl std::io::Write) -> u8 {
@@ -69,12 +90,14 @@ fn find_var(content: &str, name: &str, mut writer: impl std::io::Write) -> u8 {
     is_found
 }
 
-fn print_choose_msg(results:u8, action: &str) {
+fn print_choose_msg(results: u8, action: &str) -> u8 {
     if results > 0 {
         println!("Environment variable(s) have been found, choose which one you want to {}", action);
     } else {
         println!("No environment variable has been found :(");
     }
+
+    get_user_option()
 }
 
 impl Opt {

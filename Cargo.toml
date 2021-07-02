@@ -11,4 +11,4 @@ anyhow = "1.0.41"
 assert_cmd = "1.0.5"
 predicates = '1.0.8'
 tempfile = "3.2.0"
-home = "0.5.3"
+text_io = "0.1.8"
