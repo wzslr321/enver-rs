@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 use anyhow::{Context, Result};
 use text_io::read;
+use std::collections::HashMap;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -53,17 +54,25 @@ fn main() -> Result<()> {
         .with_context(|| format!("could not read file `{}`", args.dot_path.display()))?;
 
 
-    let mut results_number = 0;
+    let mut result_num: u8 = 0;
+    let mut result_map: Option<HashMap<u8, &str>> = None;
+
     if action_option != None {
-        results_number = find_var(&content, &args.var, &mut std::io::stdout());
+        let (rn, rm) = find_var(&content, &args.var, &mut std::io::stdout());
+        result_num = rn;
+        result_map = Some(rm);
     }
 
     let option: u8;
 
     match action_option {
         None => option = return_action_options(),
-        Some(result) => option = print_choose_msg(results_number, &result),
+        Some(result) => option = print_choose_msg(result_num, &result),
     };
+
+    if result_map != None {
+        println!("{:?}", result_map);
+    }
 
     Ok(())
 }
@@ -77,17 +86,19 @@ fn return_action_options() -> u8 {
     get_user_option()
 }
 
-fn find_var(content: &str, name: &str, mut writer: impl std::io::Write) -> u8 {
+fn find_var<'a>(content: &'a str, name: &'a str, mut writer: impl std::io::Write) -> (u8, HashMap<u8, &'a str>) {
     let mut is_found: u8 = 0;
+    let mut vars_num_option_map = HashMap::new();
 
     for line in content.lines() {
         if line.contains(name) {
             is_found += 1;
+            vars_num_option_map.insert(is_found, line);
             writeln!(writer, "{}. {}", is_found, line).ok();
         }
     }
 
-    is_found
+    (is_found, vars_num_option_map)
 }
 
 fn print_choose_msg(results: u8, action: &str) -> u8 {
