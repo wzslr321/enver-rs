@@ -3,6 +3,9 @@ use structopt::StructOpt;
 use anyhow::{Context, Result};
 use text_io::read;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufReader, Read};
+use std::io::prelude::*;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -55,7 +58,7 @@ fn main() -> Result<()> {
 
 
     let mut result_num: u8 = 0;
-    let mut result_map: Option<HashMap<u8, &str>> = None;
+    let mut result_map: Option<HashMap<u8, String>> = None;
 
     if action_option != None {
         let (rn, rm) = find_var(&content, &args.var, &mut std::io::stdout());
@@ -70,9 +73,56 @@ fn main() -> Result<()> {
         Some(result) => option = print_choose_msg(result_num, &result),
     };
 
-    if result_map != None {
-        println!("{:?}", result_map);
+    let mut result_val = "".to_string();
+
+    // amount of .to_string() scares me too, but I could not figure out better way to solve lifecycle issue.
+    match result_map {
+        None => { result_val = "No results found for an entered option".to_string() }
+        Some(r) => match r.get(&option) {
+            None => { result_val = "Found result doesn't contain any value...".to_string() }
+            Some(s) => result_val = s.to_string(),
+        },
+    };
+    if add {
+        println!("Please, enter variable you want to add");
+        let new_var: String = read!();
+        delete_add_or_modify_var(args.dot_path, &result_val, false, true, &new_var);
+    } else if delete {
+        delete_add_or_modify_var(args.dot_path, &result_val, true, false, &String::default());
+    } else if modify {
+        println!("Please, enter variable you want to modify");
+        let new_var: String = read!();
+        delete_add_or_modify_var(args.dot_path, &result_val, false, false, &new_var);
     }
+
+
+    Ok(())
+}
+
+fn delete_add_or_modify_var(p: PathBuf, old_var: &str, delete: bool, add: bool, new_var: &str) -> Result<()> {
+    let file = File::open(&p)?;
+    let mut buf_reader = BufReader::new(file);
+    let mut content = String::new();
+    buf_reader.read_to_string(&mut content)?;
+
+    let mut new_file = File::create(p)?;
+
+    for line in content.lines() {
+        if line.contains(old_var) {
+            if add {
+                new_file.write(new_var.as_bytes())?;
+            } else if delete {
+                new_file.write(b"\n")?;
+            } else {
+                new_file.write(new_var.as_bytes())?;
+            }
+        } else {
+            new_file.write(line.as_bytes())?;
+            new_file.write(b"\n");
+        }
+    }
+
+    new_file.sync_data()?;
 
     Ok(())
 }
@@ -86,14 +136,14 @@ fn return_action_options() -> u8 {
     get_user_option()
 }
 
-fn find_var<'a>(content: &'a str, name: &'a str, mut writer: impl std::io::Write) -> (u8, HashMap<u8, &'a str>) {
+fn find_var<'a>(content: &'a str, name: &'a str, mut writer: impl std::io::Write) -> (u8, HashMap<u8, String>) {
     let mut is_found: u8 = 0;
     let mut vars_num_option_map = HashMap::new();
 
     for line in content.lines() {
         if line.contains(name) {
             is_found += 1;
-            vars_num_option_map.insert(is_found, line);
+            vars_num_option_map.insert(is_found, String::from(line));
             writeln!(writer, "{}. {}", is_found, line).ok();
         }
     }
