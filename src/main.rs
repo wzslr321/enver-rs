@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use structopt::StructOpt;
 use anyhow::{Context, Result};
-use text_io::read;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -61,16 +60,24 @@ fn main() -> Result<()> {
     let mut result_map: Option<HashMap<u8, String>> = None;
 
     if action_option != None {
-        let (rn, rm) = find_var(&content, &args.var, &mut std::io::stdout());
-        result_num = rn;
-        result_map = Some(rm);
+        if action_option != Some("add") {
+            let (rn, rm) = find_var(&content, &args.var, &mut std::io::stdout());
+            result_num = rn;
+            result_map = Some(rm);
+        }
     }
 
     let option: u8;
 
     match action_option {
         None => option = return_action_options(),
-        Some(result) => option = print_choose_msg(result_num, &result),
+        Some(result) => {
+            if result != "add" {
+                option = print_choose_msg(result_num, &result)
+            } else {
+                option = 0;
+            }
+        }
     };
 
     let mut result_val = "".to_string();
@@ -85,35 +92,39 @@ fn main() -> Result<()> {
     };
     if add {
         println!("Please, enter variable you want to add");
-        let new_var: String = read!();
-        delete_add_or_modify_var(args.dot_path, &result_val, false, true, &new_var);
+        let mut new_var = String::new();
+        std::io::stdin().read_line(&mut new_var).expect("Could not read the input...");
+        delete_add_or_modify_var(args.dot_path, &result_val, false, true, false, &new_var);
     } else if delete {
-        delete_add_or_modify_var(args.dot_path, &result_val, true, false, &String::default());
+        delete_add_or_modify_var(args.dot_path, &result_val, true, false, false, &String::default());
     } else if modify {
         println!("Please, enter variable you want to modify");
-        let new_var: String = read!();
-        delete_add_or_modify_var(args.dot_path, &result_val, false, false, &new_var);
+        let mut new_var = String::new();
+        std::io::stdin().read_line(&mut new_var).expect("Could not read the input...");
+        delete_add_or_modify_var(args.dot_path, &result_val, false, false, true, &new_var);
     }
 
 
     Ok(())
 }
 
-fn delete_add_or_modify_var(p: PathBuf, old_var: &str, delete: bool, add: bool, new_var: &str) -> Result<()> {
+fn delete_add_or_modify_var(p: PathBuf, old_var: &str, delete: bool, add: bool, modify: bool, new_var: &str) -> Result<()> {
     let file = File::open(&p)?;
     let mut buf_reader = BufReader::new(file);
     let mut content = String::new();
     buf_reader.read_to_string(&mut content)?;
-
     let mut new_file = File::create(p)?;
+
+    if add {
+        new_file.write(new_var.as_bytes())?;
+        new_file.write(b"\n");
+    }
 
     for line in content.lines() {
         if line.contains(old_var) {
-            if add {
-                new_file.write(new_var.as_bytes())?;
-            } else if delete {
+            if delete {
                 new_file.write(b"\n")?;
-            } else {
+            } else if modify {
                 new_file.write(new_var.as_bytes())?;
             }
         } else {
@@ -128,7 +139,11 @@ fn delete_add_or_modify_var(p: PathBuf, old_var: &str, delete: bool, add: bool, 
 }
 
 fn get_user_option() -> u8 {
-    read!()
+    let mut option = String::new();
+    std::io::stdin().read_line(&mut option).expect("Could not get the option");
+    option.pop();
+    let u8_opt: u8 = option.parse::<u8>().unwrap();
+    u8_opt
 }
 
 fn return_action_options() -> u8 {
